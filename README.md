@@ -1,51 +1,56 @@
-﻿# Automatic documentation of ISIM Workflows
+﻿# Automatic documentation of ISIM Workflows - Jython dependent branch
+﻿
+*Attention - for the latest version switch to the 'python' branch*
 
-If you worked with the IBM Security Identity Manager's workflows  you  probably
-love them and hate them all at the same time. The workflows are quite  powerful
-and flexible, but they can also be  very  cumbersome  to  manage  and  hard  to
-troubleshoot. This code is an elegant solution to keep reigns on your workflows
-by drawing them in an easy to analyze manner.
+If you worked with the IBM Security Identity Manager's workflows you probably love them and hate them all at the same time. They are quite powerful and flexible, can also be very cumbersome to manage and hard to troubleshoot. This pages shows an elegant solution to keep reigns on your workflows by making them easy to see and analyze.
 
-In other words this code shows you how to visualize ISIM workflows without using ISIM at all.
+In other words this page shows you how to visualize ISIM workflows without using ISIM at all.
 
 ## How it works
-The first thing you need know is to ignore ISIM and its workflow editor java applet. They are useless for automation. Instead you need to export ISIM workflows in their native XML format out of ISIM's LDAP.
-You can do it in a variaty of ways:
-* Browsing the LDAP and saving each workflow to a file manually
-* Running a specially crafted ISDI assembly line that does that (PowerTools extractAll)
-* Dump the whole ISIM config suffix from the LDAP in an LDIF  format  and feed it to itimcodeextractor.py.
-* Writing a script to use JNDI/LDAP calls directly to get to the XMLs.
+The first thing you need to do is dump SIM and its java applet for workflow editing. They are useless for automation. Instead this process exports ISIMs workflows in their native XML format out of ISIM's LDAP and saves them to a folder.
+It does it by using JNDI/LDAP calls directly from the Python script to get to the XMLs.
+Now the trick is to convert them from an XML mess into something you can comprehend and turn into a nice network of nodes.
 
-The next step is to convert them from an XML mess into something you can comprehend and turn into a nice graph. This is where Python, XSLT and GraphViz come into play.
-
-* XSLT processor consumes ISIM workflows in the XML format and spits out the "dot" format for GraphViz
-* GraphViz is a visualizaton engine that makes graphics from a simple  list  of
-nodes and edges. You give it a graph in its own DOT language and it  will  draw
-it out for you as a PDF's, JPG's, PNG', HTML's or many other formats
+This is where Python, XSLT and GraphViz come into play.
+* GraphViz is a visualizaton engine that makes graphics as PDF's, JPG's, PNG', HTML's, you name it, from a simple list of nodes and edges. You give it a graph in its own DOT language and it will draw it out for you.
+* XSLT consumes ISIM workflows in the XML format and spits the
 
 ## Setup
 
-This script requires GraphViz DOT graph builder v2.20 or higher, the lxml (python interface to libxml2) and saxonb XSLT v2 processor
+Requires Java 6, Jython 2.5.1, SAXON v9.0.0.4J+ XSLT processor and GraphViz DOT graph builder v2.20.2+
 
-To get the dependancies on ubuntu/debian run
-sudo aptitude install graphviz python-lxml libsaxonb-java
+Usage: ./documentWorkflows.py <name of the folder with exported workflows> [-p|-l]
 
-*Note:* that this repo also includes a Jython branch that works on the *jython*
-engine, rather than python, and uses Java saxon and XML libraries
-
-## Usage
-
-./documentWorkflows.py {name of the folder with exported workflows} [-p|-l]
-
--p - Produce one pdf per workflow, instead of grouping similar  worflows  on  a
-same pdf
+-p - Produce one pdf per workflow
 -l - Leave dot files in place (useful for debugging)
 
-The documentation automatically saved to in  the  WorkflowDocumentation  folder
-where the script is run.
+On Windows:
+1. ExportOperationalWorkflows and ExportLifecycleWorkflows. One way to  get  it
+is to dump the whole ISIM config suffix from the LDAP in  an  LDIF  format  and
+feed it to itimcodeextractor.py.  Another  way  is  to  use  specially  crafted
+assembly lines that do that (from our other repository)
+3. In the command prompt, run the following in succession:
+documentWorkflowsToPDF.bat Z:\Data\ISIM\Workflows\Export
+documentWorkflowsToPDF.bat Z:\Data\ISIM\GlobalWorkflows\Export
+4. The documentation automatically saved to in the WorkflowDocumentation folder where the script is run
+
+On Linux:
+python documentWorkflowsToPDF.py Shares/advtimp/Data/ISIM/Workflows/Export
+python documentWorkflowsToPDF.py Shares/advtimp/Data/ISIM/GlobalWorkflows/Export
+
+Installation on Ubuntu
+jython - on ubuntu 12.04 just get jython from the repo (2.5.1), on previous download and install manually (repo contains 2.2)
+sudo aptitude install libsaxonb-java
+sudo aptitude install graphviz
+
+Installation on the windows platfor:
+1. From the G1\Identity_Management\Media\Tools\ folder
+    a. Install graphviz-2.26.3.msi to F:\Program Files\Graphviz2.26.3
+    b. Install jython_installer-2.5.1.jar to F:\jython2.5.1 (you may need to install jre such as jre-1_5_0_11-windows-i586-p-iftw first)
+    c. Unzip saxonhe9-2-1-1j.zip and copy saxon9he.jar to F:\apiscript\Lib\
+4. Copy f:\apiscript\bin\documentWorkflows*, workflow2dot_graph.xslt and workflow2dot_subgraph.xslt files to a desired location
+Actual locations are not important as long as you modify documentWorkflowsToPDF.bat to reflect the locations you've used.
 
 ## Automating even more?
 Sure, why not. Here is an idea:
-* Build workflow extraction routine into the documentation script so you always
-get the freshest workflows.
 * Configure the script to work as an HTML server, and configure GraphViz to produce XHTML/PNG pages on demand (with a link to PDFs). This way you have it always available to you in a single place.

@@ -2,8 +2,8 @@
 <xsl:stylesheet version="2.0"  xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/1999/xhtml" xmlns:this="http://somenamespace">
 <!-- 
 Translates ITIM workflow documents into a native dot syntax.
-2010 (C) Alex Ivkin 
-v2.1
+(C) 2010 Alex Ivkin
+v2.1 $Rev: 177 $ $LastChangedDate: 2010-10-29 17:54:03 -0700 (Fri, 29 Oct 2010) $
 Needs a worlflows as a parameter
 Uses XSLT v2.0 syntax that requires SAXON
 -->
@@ -27,7 +27,7 @@ Uses XSLT v2.0 syntax that requires SAXON
 	graph [fontname="Sans Bold",fontsize=10]
 	edge  [fontname="Sans Italic",fontsize=7,weight=1.5]
 	node  [fontname="Sans",fontsize=7,width=0.7,height=0.2,label=""]
-<xsl:apply-templates/>  }
+	<xsl:apply-templates/>  }
 <xsl:apply-templates select="ACTIVITY/IMPLEMENTATION_TYPE/OPERATION"/>
 </xsl:template>
 
@@ -54,10 +54,10 @@ Uses XSLT v2.0 syntax that requires SAXON
 </xsl:when>
 	<xsl:when test="TRANSITION_KIND/LOOP_END">	"<xsl:value-of select="$WorkflowName"/>-<xsl:value-of select="TRANSITION_KIND/LOOP_END/@FROM_LOOP"/>" -> "<xsl:value-of select="$WorkflowName"/>-<xsl:value-of select="TRANSITION_KIND/LOOP_END/@TO_LOOP"/>" [style=dotted];
 </xsl:when>
-	<xsl:otherwise>	"<xsl:value-of select="$WorkflowName"/>-<xsl:value-of select="TRANSITION_KIND/REGULAR/@FROM"/>" -> "<xsl:value-of select="$WorkflowName"/>-<xsl:value-of select="TRANSITION_KIND/REGULAR/@TO"/>" [label=<xsl:choose><xsl:when test="TRANSITION_KIND/REGULAR/@CONDITION"><xsl:call-template name="describeTransition">
-		<xsl:with-param name="string"><xsl:value-of select="TRANSITION_KIND/REGULAR/@CONDITION"/></xsl:with-param></xsl:call-template></xsl:when><xsl:otherwise><xsl:call-template name="describeTransition">
+	<xsl:otherwise>	"<xsl:value-of select="$WorkflowName"/>-<xsl:value-of select="TRANSITION_KIND/REGULAR/@FROM"/>" -> "<xsl:value-of select="$WorkflowName"/>-<xsl:value-of select="TRANSITION_KIND/REGULAR/@TO"/>" [label=<xsl:if test="TRANSITION_KIND/REGULAR/@CONDITION"><xsl:call-template name="describeTransition">
+		<xsl:with-param name="string"><xsl:value-of select="TRANSITION_KIND/REGULAR/@CONDITION"/></xsl:with-param></xsl:call-template></xsl:if><xsl:call-template name="describeTransition">
 		<xsl:with-param name="string"><xsl:value-of select="normalize-space(replace(TRANSITION_KIND/REGULAR/SCRIPT,'.*//.*',''))"/></xsl:with-param>
-		</xsl:call-template></xsl:otherwise></xsl:choose>,style=bold,arrowhead=vee,arrowtail=odot];
+		</xsl:call-template>,style=bold,arrowhead=vee,arrowtail=odot];
 </xsl:otherwise>
 </xsl:choose>
 </xsl:template>

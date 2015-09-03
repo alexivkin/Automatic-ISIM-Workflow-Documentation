@@ -2,8 +2,8 @@
 <xsl:stylesheet version="2.0"  xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/1999/xhtml" xmlns:this="http://somenamespace">
 <!-- 
 Post processor for adding cross-cluster links to help translate ITIM workflow documents into a native dot syntax.
-2010 (c) Alex Ivkin
-v2.1
+(C) 2010 Alex Ivkin
+v2.1 $Rev: 590 $ $LastChangedDate: 2011-02-18 11:14:36 -0800 (Fri, 18 Feb 2011) $
 
 Needs a worlflows as a parameter. Uses a $$...$$ notation to be later replaced by a python postprocessor
 Uses XSLT v2.0 syntax that requires SAXON
