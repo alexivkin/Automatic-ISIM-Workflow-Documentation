@@ -8,6 +8,12 @@ by drawing them in an easy to analyze manner.
 
 In other words this code shows you how to visualize ISIM workflows without using ISIM at all.
 
+Here is an example snapshot of an AD account workflow documentation PDF with the sub workflows (scaled down to fit here).
+![](https://github.com/BlueBayTechnologies/Automatic-ISIM-Workflow-Documentation/blob/master/Examples/account-request.png)
+
+Here what a global workflow documentation might look like.
+![](https://github.com/BlueBayTechnologies/Automatic-ISIM-Workflow-Documentation/blob/master/Examples/global.png)
+
 ## How it works
 The first thing you need know is to ignore ISIM and its workflow editor java applet. They are useless for automation. Instead you need to export ISIM workflows in their native XML format out of ISIM's LDAP.
 You can do it in a variaty of ways:
