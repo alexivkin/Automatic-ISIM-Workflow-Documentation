@@ -15,8 +15,7 @@ Here what a global workflow documentation might look like.
 ![](https://github.com/BlueBayTechnologies/Automatic-ISIM-Workflow-Documentation/blob/master/Examples/global.png)
 
 ## Other features
-* itimcodeextractor.py creates a statistics file that shows all services, people, account, role and provisioning policies found in the LDAP
-* review_custom_js shows (and potentially patches) old FESI code and old URLs in the custom code
+* itimcodeextractor.py saves all custom code into files and also creates a statistics file that shows all services, people, account, role and provisioning policies found in the LDAP.
 
 ## How it works
 The first thing you need know is to avoid ISIM and its workflow editor java applet. They are useless for automation. Instead you need to export ISIM workflows in their native XML format out of ISIM's LDAP.
