@@ -14,13 +14,24 @@ Here is an example snapshot of an AD account workflow documentation PDF with the
 Here what a global workflow documentation might look like.
 ![](https://github.com/BlueBayTechnologies/Automatic-ISIM-Workflow-Documentation/blob/master/Examples/global.png)
 
+## Other features
+* itimcodeextractor.py creates a statistics file that shows all services, people, account, role and provisioning policies found in the LDAP
+* review_custom_js shows (and potentially patches) old FESI code and old URLs in the custom code
+
 ## How it works
-The first thing you need know is to ignore ISIM and its workflow editor java applet. They are useless for automation. Instead you need to export ISIM workflows in their native XML format out of ISIM's LDAP.
+The first thing you need know is to avoid ISIM and its workflow editor java applet. They are useless for automation. Instead you need to export ISIM workflows in their native XML format out of ISIM's LDAP.
+Then you can run the python script that parses the data, converts it into a graph and produces
+
+## Extracting the data
 You can do it in a variaty of ways:
-* Browsing the LDAP and saving each workflow to a file manually
-* Running a specially crafted ISDI assembly line that does that (PowerTools extractAll)
-* Dump the whole ISIM config suffix from the LDAP in an LDIF  format  and feed it to itimcodeextractor.py.
-* Writing a script to use JNDI/LDAP calls directly to get to the XMLs.
+* Use your LDAP browser's export ability to save the following:
+	(objectclass=erObjectCategory) from ou=category,ou=itim,ou=[company],dc=itim,dc=dom
+	(objectclass=erWorkflowDefinition) from ou=workflow,erglobalid=00000000000000000000,ou=[company],dc=itim,dc=dom
+* Run a specially crafted ISDI assembly line that does that (see ISIM PowerTools "extractAll")
+* Dump the whole ISIM config suffix from the LDAP in an LDIF format and feed it to itimcodeextractor.py.
+	/opt/IBM/ldap/[version]/sbin/db2ldif -o /tmp/ldapdump.ldif
+	./itimcodeextractor.py /tmp/ldapdump.ldif
+* Write a script to use JNDI/LDAP calls directly to get to the worlkflow XMLs
 
 The next step is to convert them from an XML mess into something you can comprehend and turn into a nice graph. This is where Python, XSLT and GraphViz come into play.
 

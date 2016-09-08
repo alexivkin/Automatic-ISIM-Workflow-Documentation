@@ -17,7 +17,9 @@ Uses XSLT v2.0 syntax that requires SAXON
 <xsl:template match="*" priority="-1000">
 	<xsl:apply-templates/>
 </xsl:template>
+<!-- swallow comments -->
 <xsl:template match="text()" priority="2"/>
+<!-- main process template -->
 <xsl:template match="PROCESSDEFINITION">  subgraph "cluster_<xsl:value-of select="$WorkflowName"/>" {
 	label="<xsl:value-of select="$WorkflowName"/>";
 	labelloc="t";
@@ -28,7 +30,7 @@ Uses XSLT v2.0 syntax that requires SAXON
 	edge  [fontname="Sans Italic",fontsize=7,weight=1.5]
 	node  [fontname="Sans",fontsize=7,width=0.7,height=0.2,label=""]
 <xsl:apply-templates/>  }
-<xsl:apply-templates select="ACTIVITY/IMPLEMENTATION_TYPE/OPERATION"/>
+<!-- old code, now in the  post processor <xsl:apply-templates select="ACTIVITY/IMPLEMENTATION_TYPE/OPERATION"/> -->
 </xsl:template>
 
 <!-- build nodes 
@@ -40,6 +42,7 @@ Uses XSLT v2.0 syntax that requires SAXON
 -->
 <xsl:template match="ACTIVITY">	node [fillcolor=<xsl:choose>
 <xsl:when test="IMPLEMENTATION_TYPE/ROUTE"><xsl:choose><xsl:when test="SCRIPT">plum</xsl:when><xsl:otherwise>peachpuff</xsl:otherwise></xsl:choose></xsl:when>
+<xsl:when test="IMPLEMENTATION_TYPE/OPERATION/ENTITY_OPERATION/@ENTITY_EXP">plum</xsl:when>
 <xsl:when test="IMPLEMENTATION_TYPE/OPERATION">khaki</xsl:when>
 <xsl:when test="IMPLEMENTATION_TYPE/APPLICATION">darkorange</xsl:when>
 <xsl:when test="IMPLEMENTATION_TYPE/LOOP">red</xsl:when>
@@ -76,14 +79,16 @@ Uses XSLT v2.0 syntax that requires SAXON
 </xsl:call-template>"</xsl:otherwise>
 </xsl:choose></xsl:template>
 
+<!-- convert javascript to English -->
 <xsl:template name="decode">
 <xsl:param name="code" />
 <xsl:value-of select="this:color-code(this:replace-multi($code,(
 	'process.*?type.*?\s*==\s*&quot;ua&quot;','process.*?type.*?\s*!=\s*&quot;ua&quot;',
-	'\.get\(\)\s*==\s*([0-9_a-z]+)','\.get\(\)\s*!=\s*([0-9_a-z]+)',
+	'\.get\(\)\s*==\s*&quot;*([0-9_a-z]+)&quot;*','\.get\(\)\s*!=\s*&quot;*([0-9_a-z]+)&quot;*',
 	'activity\.resultsummary\s*==\s*activity\.(\w+)','activity\.resultsummary\s*!=\s*activity\.(\w+)',
 	'((activity|process)\.resultsummary|workflowruntimecontext\.getactivityresult\(\))==&quot;sf&quot;','((activity|process)\.resultsummary|workflowruntimecontext\.getactivityresult\(\))!=&quot;sf&quot;',
 	'((activity|process)\.resultsummary|workflowruntimecontext\.getactivityresult\(\))==&quot;aa&quot;','((activity|process)\.resultsummary|workflowruntimecontext\.getactivityresult\(\))!=&quot;aa&quot;',
+	'((activity|process)\.resultsummary|workflowruntimecontext\.getactivityresult\(\))==&quot;ss&quot;','((activity|process)\.resultsummary|workflowruntimecontext\.getactivityresult\(\))!=&quot;ss&quot;',
 	'\.get\(\)(;|\s|$)','\.get\(\)\.dn','\.get\(\)\.tolower\(\)\s*==\s*&quot;([0-9_a-z]+)&quot;','\.get\(\)\.tolower\(\)\s*!=\s*&quot;([0-9_a-z]+)&quot;',
 	'\.get\(\)\.indexof\(&quot;([0-9_a-z]+)&quot;\)\s*==\s*0','\.get\(\)\.indexof\(&quot;([0-9_a-z]+)&quot;\)\s*!=\s*0',
 	'\.get\(\)\.length\s*==\s*0','\.get\(\)\.length\s*>\s*0',
@@ -94,6 +99,7 @@ Uses XSLT v2.0 syntax that requires SAXON
 	'$1','not $1',
 	'failed','not failed',
 	'approved','not approved',
+	'successful','not successful',
 	'','dn',' is $1',' is not $1',
 	' starts with $1',' does not start with $1',
 	' empty',' not empty',

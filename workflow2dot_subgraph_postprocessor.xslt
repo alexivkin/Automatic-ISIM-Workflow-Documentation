@@ -22,9 +22,9 @@ Uses XSLT v2.0 syntax that requires SAXON
 
 <xsl:template match="PROCESSDEFINITION"><xsl:apply-templates select="ACTIVITY/IMPLEMENTATION_TYPE/OPERATION"/></xsl:template>
 
-<!-- Lists cross-cluster links go over the nodes to link clusters together -->
-<xsl:template match="OPERATION">  "<xsl:value-of select="$WorkflowName"/>-<xsl:value-of select="../../@ACTIVITYID"/>" -> "$$<xsl:value-of select="ENTITY_OPERATION/@ENTITY_REF"/>-<xsl:value-of select="STATIC_OPERATION/@ENTITY_NAME"/>-<xsl:if test="ENTITY_OPERATION/@ENTITY_TYPE"><xsl:value-of select="ENTITY_OPERATION/@ENTITY_TYPE"/></xsl:if><xsl:if test="STATIC_OPERATION/@ENTITY_TYPE"><xsl:value-of select="STATIC_OPERATION/@ENTITY_TYPE"/></xsl:if>-<xsl:value-of select="@OPERATION_NAME"/>$$" [style=dashed,arrowhead=vee];
-</xsl:template>
+<!-- Lists cross-cluster links go over the nodes to link clusters together, but ignore scripted ops-->
+<xsl:template match="OPERATION"><xsl:choose><xsl:when test="ENTITY_OPERATION/@ENTITY_EXP"/><xsl:otherwise>  "<xsl:value-of select="$WorkflowName"/>-<xsl:value-of select="../../@ACTIVITYID"/>" -> "$$<xsl:value-of select="ENTITY_OPERATION/@ENTITY_REF"/>-<xsl:value-of select="STATIC_OPERATION/@ENTITY_NAME"/>-<xsl:if test="ENTITY_OPERATION/@ENTITY_TYPE"><xsl:value-of select="ENTITY_OPERATION/@ENTITY_TYPE"/></xsl:if><xsl:if test="STATIC_OPERATION/@ENTITY_TYPE"><xsl:value-of select="STATIC_OPERATION/@ENTITY_TYPE"/></xsl:if>-<xsl:value-of select="@OPERATION_NAME"/>$$" [style=dashed,arrowhead=vee];
+</xsl:otherwise></xsl:choose></xsl:template>
 
 </xsl:stylesheet>
 

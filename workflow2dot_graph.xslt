@@ -20,6 +20,7 @@ label="<xsl:value-of select="$WorkflowName"/>"; labelloc="t";
 		<xsl:apply-templates/>}</xsl:template>
 	<xsl:template match="ACTIVITY">node [shape=box, style=filled,label="<xsl:value-of select="@ACTIVITYID"/>",fillcolor=<xsl:choose>
 <xsl:when test="IMPLEMENTATION_TYPE/ROUTE"><xsl:choose><xsl:when test="SCRIPT">plum</xsl:when><xsl:otherwise>peachpuff</xsl:otherwise></xsl:choose></xsl:when>
+<xsl:when test="IMPLEMENTATION_TYPE/OPERATION/ENTITY_OPERATION/@ENTITY_EXP">plum</xsl:when>
 <xsl:when test="IMPLEMENTATION_TYPE/OPERATION">khaki</xsl:when>
 <xsl:when test="IMPLEMENTATION_TYPE/APPLICATION">darkorange</xsl:when>
 <xsl:when test="IMPLEMENTATION_TYPE/LOOP">red</xsl:when>

@@ -4,16 +4,20 @@
 v3.0
 Requires GraphViz DOT graph builder, the lxml (python interface to libxml2) and saxonb (XSLT2 subgrph processing)
 
-Installing:
-On ubuntu run
-sudo aptitude install graphviz python-lxml libsaxonb-java
+Installation:
+Get and install GraphViz, Python LXML, saxonb-xslt.
+This can be done by running
+ sudo aptitude install graphviz python-lxml libsaxonb-java
 
-Usage: python documentWorkflows.py <name of the folder with exported workflows> [-p|-l]
+Usage:
+ Use PowerTools, or the bundled export script to export workflows from the LDAP/LDIF in an xml format
+
+Run:
+ python documentWorkflows.py <name of the folder with exported workflows> [-p|-l]
 
 -p - Produce one pdf per workflow
 -l - Keep intermediate dot files (useful for debugging)
 
-Use PowerTools, or the bundled export script to export workflows from the LDAP/LDIF in an xml format
 
 """
 import sys,os,datetime,traceback, time
@@ -26,7 +30,7 @@ def main():
         sys.exit(2)
     scriptdir=sys.path[0]
     xmldir=sys.argv[1]
-    destdir='WorkflowDocumentation' #scriptdir+'/WorkflowDocumentation' #xmldir+'/../../
+    destdir=sys.argv[1]+'/../WorkflowDocumentation' #scriptdir+'/WorkflowDocumentation' #xmldir+'/../../
     if not os.path.isdir(destdir):
         os.mkdir(destdir)
         #print destdir+" does not exit!"
@@ -118,7 +122,11 @@ def main():
                             if entityref is None or entityref=='':
                                 entitytype=entityop[0].get("ENTITY_TYPE")
                                 if entitytype is None or entitytype=='': # this is then a rarely used ENTITY_EXP thingy
-                                    continue # just skip it
+                                    #entitytype=entityop[0].get("ENTITY_EXP")
+                                    #if entitytype is None or entitytype=='': # what could it be then?
+                                    #    continue
+                                    #else: # this is not a sub-workflow but just a node with some custom code
+                                    continue  # this is not a sub-workflow but just a node with some custom code
                             else:
                                 relevantitems=doc.findall("RELEVANT_DATA")
                                 for rd in relevantitems:
@@ -183,7 +191,7 @@ def main():
     # print warnings first
     for wftitle in category.keys():
         if wftitle not in shortname:
-            print "The %s workflow is referenced, but one of the files in the %s folder. Skipping." % (wftitle,xmldir)
+            print "The %s workflow is referenced, but is not in one of the files in the %s folder. Skipping." % (wftitle,xmldir)
     # process files
     count=0
     wfout={} # a hash of file handles
@@ -223,20 +231,20 @@ def main():
                 sys.stdout.flush()
                 # build a subgraph using the XSLT 2.0 processor
                 #print "Processing %s - %s (%s) " % (wftype, wftitle,fullname[wftitle])
-                os.system('saxonb-xslt -s:"%s" -o:"WorkflowDocumentation/%s.dot" -xsl:"%s/workflow2dot_subgraph.xslt" WorkflowName="%s"' % (fullname[wftitle],name,scriptdir,wftitle))
-                print>>wfout[wftype],open("WorkflowDocumentation/%s.dot" % name,'r').read()
+                os.system('saxonb-xslt -s:"%s" -o:"%s/%s.dot" -xsl:"%s/workflow2dot_subgraph.xslt" WorkflowName="%s"' % (fullname[wftitle],destdir,name,scriptdir,wftitle))
+                print>>wfout[wftype],open("%s/%s.dot" % (destdir,name),'r').read()
                 if not leavefiles:
                     os.remove('%s/%s.dot' % (destdir,name))
                 # build a link between subgraphs (may be empty)
-                os.system('saxonb-xslt -s:"%s" -o:"WorkflowDocumentation/%s.link" -xsl:"%s/workflow2dot_subgraph_postprocessor.xslt" WorkflowName="%s"' % (fullname[wftitle],name,scriptdir,wftitle))
+                os.system('saxonb-xslt -s:"%s" -o:"%s/%s.link" -xsl:"%s/workflow2dot_subgraph_postprocessor.xslt" WorkflowName="%s"' % (fullname[wftitle],destdir,name,scriptdir,wftitle))
                 # convert the xslt $$...$$ parameter into the actual subgraph name using the awesome python string/list slicing [3:-3] and the lamba function
-                postbuilder[wftype]+=re.sub(r'"\$\$.*\$\$"',lambda match:'"'+refwftitle[(match.group(0)[3:-3] if (match.group(0)[3:-3] in refwftitle) else 'unknown')]+'-START"',open("WorkflowDocumentation/%s.link" % name).read())
+                postbuilder[wftype]+=re.sub(r'"\$\$.*\$\$"',lambda match:'"'+refwftitle[(match.group(0)[3:-3] if (match.group(0)[3:-3] in refwftitle) else 'unknown')]+'-START"',open("%s/%s.link" % (destdir,name)).read())
                 if not leavefiles:
-                    os.remove('WorkflowDocumentation/%s.link' % name)
+                    os.remove('%s/%s.link' % (destdir,name))
         else:
             print "Processing %s"%wftitle
             # could use the normal XSLT v1 processor as it is faster than Saxon. XSLT 2.0 is not required in this step
-            os.system('xsltproc -o "WorkflowDocumentation/%s.dot" --stringparam WorkflowName "%s" "%s/workflow2dot_graph.xslt" "%s/%s"' % (name,wftitle,scriptdir,xmldir,xmlfile))
+            os.system('xsltproc -o "%s/%s.dot" --stringparam WorkflowName "%s" "%s/workflow2dot_graph.xslt" "%s/%s"' % (destdir,name,wftitle,scriptdir,xmldir,xmlfile))
             #os.system('java net.sf.saxon.Transform -o "%s/%s.dot" "%s/%s" "%s/workflow2dot_graph.xslt" WorkflowName="%s"'%(destdir,name,xmldir,xmlfile,scriptdir,wftitle))
             os.system('dot -Tpdf -o "%s/%s.pdf" "%s/%s.dot"'%(destdir,name,destdir,name))
             if not leavefiles:
