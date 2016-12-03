@@ -3,33 +3,34 @@
 Extract ITIM configuration components from an ldif
 Give the name of the ldif
 
-There are three options to extract the ITIM config data, choose what is the easiest:
+There are three options to extract the ITIM config data:
 
-1. Use your LDAP browser's export ability to save the following:
-        (objectclass=erObjectCategory) from ou=category,ou=itim,ou=[company],dc=itim,dc=dom
-        (objectclass=erTemplate) from ou=config,ou=itim,ou=[company],dc=itim,dc=dom
-        (objectclass=erFormTemplate) from ou=formTemplates,ou=itim,ou=[company],dc=itim,dc=dom
-        (objectclass=erProvisioningPolicy) from ou=policies,erglobalid=00000000000000000000,ou=[company],dc=itim,dc=dom
-        (objectclass=erWorkflowDefinition) from ou=workflow,erglobalid=00000000000000000000,ou=[company],dc=itim,dc=dom
+1. Dump the whole ldap (preferable):
 
-2. Use ldapsearch to export specific entries:
+/opt/IBM/ldap/[version]/sbin/db2ldif -o f:\temp\ldapdump.ldif
 
-ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erObjectCategory) > ldapexport-oc.ldif
-ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erTemplate) > ldapexport-t.ldif
-ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erFormTemplate) > ldapexport-ft.ldif
+This file can get big, but it compresses well.
+2. Use ldapsearch to export specific entries (limits the size of the export, but will miss some details)
+
+ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erServiceItem) > ldapexport-services.ldif
 ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erProvisioningPolicy) > ldapexport-pp.ldif
-ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erWorkflowDefinition) > ldapexport-wd.ldif
+ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erWorkflowDefinition) > ldapexport-workflows.ldif
+ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erRole) > ldapexport-roles.ldif
+ldapsearch -h host -D cn=admin -w password -s sub (objectclass=*) -b ou=itim,ou=[company],dc=itim,dc=dom > ldapexport-conf.ldif
 
-Combine into a single file
+(the last item includes erServiceProfile, erObjectCategory from ou=category,ou=itim,ou=[company],dc=itim,dc=dom,  erTemplate from ou=config,ou=itim,ou=[company],dc=itim,dc=dom, erFormTemplate from ou=formTemplates,ou=itim,ou=[company],dc=itim,dc=dom and many other)
 
-3. Dump the whole ldap:
+3. Use your preferred LDAP browser's export ability to save the following (note that dc=itim,dc=dom is a root suffix and may be different depending on how ITIM was set up initially):
 
-/opt/IBM/ldap/[version]/sbin/db2ldif -o f:\\temp\\ldapdump.ldif
+    (objectclass=erServiceItem) from ou=services,erglobalid=00000000000000000000,ou=[company],dc=itim,dc=dom
+    (objectclass=erProvisioningPolicy) from ou=policies,erglobalid=00000000000000000000,ou=[company],dc=itim,dc=dom
+    (objectclass=erWorkflowDefinition) from ou=workflow,erglobalid=00000000000000000000,ou=[company],dc=itim,dc=dom
+    (objectclass=erRole) from ou=roles,erglobalid=00000000000000000000,ou=[company],dc=itim,dc=dom
+    (objectclass=*) from ou=itim,ou=[company],dc=itim,dc=dom
 
 Todo: add PrettyTable
-sudo apt-get install python-prettytable
 from prettytable import PrettyTable
-
+sudo apt-get install python-prettytable
 
 2012-2016
 @author: Alex Ivkin
@@ -65,48 +66,79 @@ class LdifParser:
         #namehash={}
 
     def parseOut(self):
-        print "Parsing ldif ...",
+        print "Parsing ldif",
         i=0
         try:
             ldiffile = open(self.ldif,'r')
             entry={}
             key=''
+            plaintext=False;
             try:
                 for fullline in ldiffile:
-                    line=fullline.strip('\n') # keep spaces but remove EOLs
-                    if line=='': # end of an entry
-                        if 'objectclass' in entry and "ou=recycleBin" not in entry['dn'][0] : # if it is a valid entry and not in the trash
-                            self.analyzeEntry(entry)
-                        entry={}
-                    elif line.startswith("#"): # skip comment
-                        continue
-                    elif ":" in line:
-                        (key,value)=line.split(":",1)
-                        key=key.lower() # ldap is case insensitive
-                        value=value.strip(": ")
-                        if key in entry:
-                            # convert to a set
-                            entry[key].append(value)
+                    line=fullline.rstrip('\n\r') # keep spaces but remove EOLs
+                    if not plaintext and not entry and line.startswith("erglobalid="):
+                        plaintext=True;
+                        print "plaintext format ",
+                    if plaintext: # ldapsearch plaintext format
+                        if re.match("erglobalid=.*DC=COM$",line): # analyze old and start a new entry
+                            if entry:
+                                if 'objectclass' in entry and "ou=recycleBin" not in entry['dn'][0] : # if it is a valid entry and not in the trash
+                                    self.analyzeEntry(entry)
+                                entry={}
+                            entry['dn']=[line]
+                        elif re.match(r"[a-zA-Z]+=",line):
+                            (key,value)=line.split("=",1)
+                            key=key.lower() # ldap is case insensitive
+                            value=value.strip("=")
+                            if key in entry:
+                                entry[key].append(value)
+                            else:
+                              entry[key]=[value]
+                        elif len(entry) > 0: # tag line onto the last value
+                            #line=line.lstrip(' ') # remove the leading space
+                            if len(entry[key]) == 1:
+                                entry[key]=[entry[key][0]+line]
+                            else:
+                                entry[key][-1]+=line # extend the last value
                         else:
-                            entry[key]=[value]
-                    elif len(entry) > 0: # tag line onto the last value
-                        line=line.lstrip(' ') # remove the leading space
-                        if len(entry[key]) == 1:
-                            entry[key]=[entry[key][0]+line]
-                        else:
-                            # extend the last value
-                            entry[key][-1]+=line
+                            print "Error: ", line
+                    else: # classical format (softerra, db2ldif)
+                        if line=='': # end of an entry
+                            if 'objectclass' in entry and "ou=recycleBin" not in entry['dn'][0] : # if it is a valid entry and not in the trash
+                                self.analyzeEntry(entry)
+                            entry={}
+                        elif line.startswith("#"): # skip comment
+                            continue
+                        elif ":" in line:
+                            (key,value)=line.split(":",1)
+                            key=key.lower() # ldap is case insensitive
+                            value=value.strip(": ")
+                            if key in entry:
+                                # convert to a set
+                                entry[key].append(value)
+                            else:
+                                entry[key]=[value]
+                        elif len(entry) > 0: # tag line onto the last value
+                            line=line.lstrip(' ') # remove the leading space
+                            if len(entry[key]) == 1:
+                                entry[key]=[entry[key][0]+line]
+                            else:
+                                # extend the last value
+                                entry[key][-1]+=line
                     i+=1
                     #if i>60009: break
                     if not i%100000:
                         sys.stdout.write(".")
             except:
-                print entry
-                print "Failure  %s, %s" % (sys.exc_info()[0],sys.exc_info()[1])
+                print "\nFailure pasing \"%s\" for %s\n%s, %s" % (line, entry, sys.exc_info()[0],sys.exc_info()[1])
                 traceback.print_exc()
                 sys.exit(2)
+
+            if plaintext: # plaintext parser is backfilling, need to process the last entry
+                if 'objectclass' in entry and "ou=recycleBin" not in entry['dn'][0]:
+                    self.analyzeEntry(entry)
             # second pass to fill in the values the first pass missed
-            print " refilling ...",
+            print " remapping ...",
             # servicetypes do not backreference well, so we do a second pass and readability conversion right here
             #print self.serviceprofiles
             #print self.services
@@ -234,6 +266,7 @@ class LdifParser:
                 servicedn=entry['dn'][0].lower()
                 serviceurl=entry['erurl'][0] if 'erurl' in entry else entry['host'][0] if 'host' in entry else entry['ersapnwlhostname'][0] if 'ersapnwlhostname' in entry else entry['eroraservicehost'][0] if 'eroraservicehost' in entry else ''
                 serviceclass=self.serviceprofiles[servicetype] if servicetype in self.serviceprofiles else ''
+                #print servicedn
                 if servicedn not in self.services:
                     self.services[servicedn]=[entry["erservicename"][0],servicetype,serviceurl,0,0,0,serviceclass] # name, type, active,  suspended ,  orphan
                 else: # overwrite the guessed name and service type, but keep the account counters
