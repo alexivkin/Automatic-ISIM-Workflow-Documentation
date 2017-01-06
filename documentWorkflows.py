@@ -1,5 +1,6 @@
 #!/usr/bin/python
-""" Automatic documentation for all workflows
+"""
+Automatic documentation for all workflows
 2015 (c) Alex Ivkin
 v3.0
 Requires GraphViz DOT graph builder, the lxml (python interface to libxml2) and saxonb (XSLT2 subgrph processing)
@@ -7,7 +8,7 @@ Requires GraphViz DOT graph builder, the lxml (python interface to libxml2) and 
 Installation:
 Get and install GraphViz, Python LXML, saxonb-xslt.
 This can be done by running
- sudo aptitude install graphviz python-lxml libsaxonb-java
+ sudo apt-get install graphviz python-lxml libsaxonb-java
 
 Usage:
  Use PowerTools, or the bundled export script to export workflows from the LDAP/LDIF in an xml format

@@ -10,7 +10,8 @@ There are three options to extract the ITIM config data:
 /opt/IBM/ldap/[version]/sbin/db2ldif -o f:\temp\ldapdump.ldif
 
 This file can get big, but it compresses well.
-2. Use ldapsearch to export specific entries (limits the size of the export, but will miss some details)
+
+2. Use ldapsearch to export specific entries (limits the size of the export, but will miss some details - for all non ascii (binary or utf) values will be lost)
 
 ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erServiceItem) > ldapexport-services.ldif
 ldapsearch -h host -D cn=admin -w password -s sub (objectclass=erProvisioningPolicy) > ldapexport-pp.ldif
@@ -62,6 +63,7 @@ class LdifParser:
         self.ppolicies={}
         self.other={}
         self.serviceprofiles={'eritimservice':'Built-in'} # init in with a default entry
+        self.plaintext=False; # false for db2ldif, true for ldapsearch formatted files
         #self.ALs={}
         #namehash={}
 
@@ -72,36 +74,36 @@ class LdifParser:
             ldiffile = open(self.ldif,'r')
             entry={}
             key=''
-            plaintext=False;
             try:
                 for fullline in ldiffile:
                     line=fullline.rstrip('\n\r') # keep spaces but remove EOLs
-                    if not plaintext and not entry and line.startswith("erglobalid="):
-                        plaintext=True;
+                    if not self.plaintext and not entry and line.startswith("erglobalid="):
+                        self.plaintext=True;
                         print "plaintext format ",
-                    if plaintext: # ldapsearch plaintext format
+                    if self.plaintext: # ldapsearch plaintext format
                         if re.match("erglobalid=.*DC=COM$",line): # analyze old and start a new entry
                             if entry:
                                 if 'objectclass' in entry and "ou=recycleBin" not in entry['dn'][0] : # if it is a valid entry and not in the trash
                                     self.analyzeEntry(entry)
                                 entry={}
                             entry['dn']=[line]
-                        elif re.match(r"[a-zA-Z]+=",line):
+                        elif re.match(r"[a-zA-Z]+=.*[^;]$",line): # it's so specific to make sure we ignore any javascript - the side effect is skipping the ldap attributes that have values ending in ;
                             (key,value)=line.split("=",1)
                             key=key.lower() # ldap is case insensitive
                             value=value.strip("=")
-                            if key in entry:
-                                entry[key].append(value)
-                            else:
-                              entry[key]=[value]
-                        elif len(entry) > 0: # tag line onto the last value
+                            if value <> "NOT ASCII": # this means this value is lost in ldapsearch export
+                                if key in entry:
+                                    entry[key].append(value)
+                                else:
+                                    entry[key]=[value]
+                        elif len(line)>0 and len(entry) > 0: # tag line onto the last value. Skipping empty lines to make sure we dont duplicate \n, but the sideeffect is removal of blank lines from the multiline attribute values
                             #line=line.lstrip(' ') # remove the leading space
                             if len(entry[key]) == 1:
-                                entry[key]=[entry[key][0]+line]
+                                entry[key]=[entry[key][0]+line+"\n"] #  add \n for readability (it's plaintext not base64)
                             else:
-                                entry[key][-1]+=line # extend the last value
-                        else:
-                            print "Error: ", line
+                                entry[key][-1]+=line+"\n" # extend the last value
+                        #else:
+                        #    print "Error: ", line
                     else: # classical format (softerra, db2ldif)
                         if line=='': # end of an entry
                             if 'objectclass' in entry and "ou=recycleBin" not in entry['dn'][0] : # if it is a valid entry and not in the trash
@@ -123,8 +125,7 @@ class LdifParser:
                             if len(entry[key]) == 1:
                                 entry[key]=[entry[key][0]+line]
                             else:
-                                # extend the last value
-                                entry[key][-1]+=line
+                                entry[key][-1]+=line # extend the last value
                     i+=1
                     #if i>60009: break
                     if not i%100000:
@@ -134,7 +135,7 @@ class LdifParser:
                 traceback.print_exc()
                 sys.exit(2)
 
-            if plaintext: # plaintext parser is backfilling, need to process the last entry
+            if self.plaintext: # plaintext parser is backfilling, need to process the last entry
                 if 'objectclass' in entry and "ou=recycleBin" not in entry['dn'][0]:
                     self.analyzeEntry(entry)
             # second pass to fill in the values the first pass missed
@@ -147,6 +148,8 @@ class LdifParser:
                     serviceclass=self.serviceprofiles[v[1]]
                     if serviceclass == 'com.ibm.itim.remoteservices.provider.itdiprovider.ItdiServiceProviderFactory':
                         serviceclass='TDI'
+                    elif serviceclass == 'com.ibm.itim.remoteservices.provider.dsml2.DSML2ServiceProviderFactory':
+                        serviceclass='DSML'
                     elif serviceclass == 'com.ibm.itim.remoteservices.provider.feedx.InetOrgPersonToTIMxPersonFactory':
                         serviceclass='LDAPPersonFeed'
                     elif serviceclass == 'com.ibm.itim.remoteservices.provider.manualservice.ManualServiceConnectorFactory':
@@ -231,7 +234,7 @@ class LdifParser:
             name=None
             data=None
             entryObjectclass=[o.lower() for o in entry['objectclass']]
-            if 'erWorkflowDefinition'.lower() in entryObjectclass: # Lifecycle workflows
+            if 'erWorkflowDefinition'.lower() in entryObjectclass and 'erxml' in entry: # Lifecycle workflows
                 #ou=workflow,erglobalid=00000000000000000000,ou=PGE,dc=itim,dc=dom
                 # check if the guid has already been seen
                 dn=entry["dn"][0]
@@ -244,7 +247,7 @@ class LdifParser:
                     + "_" + (entry["ercategory"][0] if "ercategory" in entry else "") \
                     + "_" + guid +".xml"
                 #if 'erxml' in entry:
-                data=base64.b64decode(entry['erxml'][0])
+                data=base64.b64decode(entry['erxml'][0]) if not self.plaintext else entry['erxml'][0]
                 self.save(name,data)
             #if 'erServiceProfile' in entry["objectclass"]: # service profile
             #    'eraccountclass'
@@ -252,10 +255,10 @@ class LdifParser:
             elif 'erALOperation'.lower() in entryObjectclass:
                 filename="%s-%s-%s" % (re.search('ou=(.+),ou=assembly',entry["dn"][0]).group(1),entry['eroperationnames'][0],entry['cn'][0])
                 name=self.ALExportFolder+"/"+filepattern.sub("~", filename)+".cfg"
-                data=base64.b64decode(entry['eralconfig'][0])
+                data=base64.b64decode(entry['eralconfig'][0]) if not self.plaintext else entry['eralconfig'][0]
                 self.save(name,data)
                 name=self.ALExportFolder+"/"+filepattern.sub("~", filename)+".xml"
-                data=base64.b64decode(entry['erassemblyline'][0])
+                data=base64.b64decode(entry['erassemblyline'][0]) if not self.plaintext else entry['erassemblyline'][0]
                 self.save(name,data)
             elif 'erServiceProfile'.lower() in entryObjectclass: # service
                 serviceprofilename=entry['ercustomclass'][0]
@@ -308,13 +311,26 @@ class LdifParser:
                     else:
                         self.services[servicedn][4]+=1
             elif '---erObjectCategory'.lower() in entryObjectclass: # Operational workflows
+erpolicyitemname
+erpolicytarget
+erjavascript
+
+eridentitypolicy
+errecertificationpolicy
+ 'erobjectprofile': 29,
+ 'erorgunititem, organizationalunit': 760,
+ 'ersystemrole': 47,
+ 'ertemplate': 32,
+ 'organizationalunit': 31}
+
+            elif '---erObjectCategory'.lower() in entryObjectclass: # Operational workflows
                 #ou=category,ou=itim,ou=PGE,dc=itim,dc=dom
                 #ou=objectProfile,ou=itim,ou=PGE,dc=itim,dc=dom
                 #ou=serviceProfile,ou=itim,ou=PGE,dc=itim,dc=dom - (objectclass=*)
                 for erxml in entry['erxml']:
                     name = None
                     dn = None
-                    decodederxml=base64.b64decode(entry['erxml'][0])
+                    decodederxml=base64.b64decode(entry['erxml'][0]) if not self.plaintext else entry['erxml'][0]
                     bitsnpieces=decodederxml.split("\"")
                     for i in range(len(bitsnpieces)):
                         if name is None and bitsnpieces[i].find(" name=")!=-1:
@@ -336,7 +352,7 @@ class LdifParser:
             elif 'erProvisioningPolicy'.lower() in entryObjectclass: # Provisioinig Policies
                 #ou=policies,erglobalid=00000000000000000000,ou=PGE,dc=itim,dc=dom
                 name=self.PPExportFolder+"/"+filepattern.sub("~",entry["erpolicyitemname"][0])+"_"+entry["erglobalid"][0]+".xml";
-                data=base64.b64decode(entry['erentitlements'][0])
+                data=base64.b64decode(entry['erentitlements'][0]) if not self.plaintext else entry['erentitlements'][0]
                 self.ppolicies[entry["erpolicyitemname"][0]]=[entry["erpolicymembership"],entry["erreqpolicytarget"] if 'erreqpolicytarget' in entry else None,
                                                                 entry["erpolicytarget"] if 'erpolicytarget' in entry else None]
                 ''' for erpolicymembership:
@@ -364,8 +380,7 @@ class LdifParser:
                 else:
                     self.other[key]=1
         except:
-            print entry
-            print "Failure  %s, %s" % (sys.exc_info()[0],sys.exc_info()[1])
+            print "\nFailure processing %s\n%s, %s" % (entry,sys.exc_info()[0],sys.exc_info()[1])
             traceback.print_exc()
             sys.exit(2)
 
